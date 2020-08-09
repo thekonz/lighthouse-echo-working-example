@@ -1,0 +1,62 @@
+version: "3.7"
+
+services:
+  load-balancer:
+    image: nginx
+    ports:
+      - 80:80
+    links:
+      - php
+    volumes:
+      - ./docker/load-balancer/conf.d:/etc/nginx/conf.d:ro
+      - .:/var/www:ro
+
+  php:
+    build: ./docker/php
+    image: base-php
+    volumes:
+      - .:/var/www
+    working_dir: /var/www
+    user: 1000:1000
+    environment:
+      HOME: /tmp
+    links:
+      - mysql
+      - redis
+
+  queue:
+    image: base-php
+    volumes:
+      - .:/var/www
+    working_dir: /var/www
+    user: 1000:1000
+    environment:
+      HOME: /tmp
+    command: ["php", "artisan", "queue:work"]
+    links:
+      - mysql
+      - redis
+
+  mysql:
+    image: mysql:8
+    environment:
+      MYSQL_RANDOM_ROOT_PASSWORD: 1
+      MYSQL_DATABASE: laravel
+      MYSQL_USER: homestead
+      MYSQL_PASSWORD: secret
+
+  redis:
+    image: redis
+
+  echo:
+    image: node:13
+    user: 1000:1000
+    volumes:
+      - .:/app
+    working_dir: /app
+    tty: true
+    command: ["bash", "-c", "yarn install && (rm laravel-echo-server.lock & yarn laravel-echo-server start --force)"]
+    ports:
+      - 6001:6001
+    links:
+      - redis
